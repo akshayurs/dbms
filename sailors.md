@@ -192,9 +192,8 @@ END IF;
 ```
 
 12.	A trigger that deletes all expired reservations. 
-- we can't add trigger on same table to modify that table rows 
- (that is trigger on rservers to delete rservers rows Therefore use any other table on any operation)
- (Correct way to delete expired records is with event schedulers not triggers) **
+- we can't add trigger on same table to modify that table rows that is trigger on rservers to delete rservers rows Therefore use any other table on any operation
+ - Correct way to delete expired records is with event schedulers not triggers
 
 ```SQL 
 CREATE trigger delete_expired
