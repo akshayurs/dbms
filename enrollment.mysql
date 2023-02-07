@@ -34,64 +34,64 @@ CREATE TABLE book_adoption (
 -- 
 -- 
 -- 1. Demonstrate how you add a new text book to the database and make this book be adopted by some department. 
-insert into text_book
-values(11, "Maths", "Publisher_1", "Author_1");
-insert into book_adoption
-values (5, 5, 11);
+INSERT INTO text_book
+VALUES(11, "Maths", "Publisher_1", "Author_1");
+insert INTO book_adoption
+VALUES (5, 5, 11);
 -- 
 -- 
 -- 2. Produce a list of text books (include Course #, Book-ISBN, Book-title)
 -- in the alphabetical order for courses offered by the ‘CS’ department that use more than one books. 
-select C.course_id,
+SELECT C.course_id,
     TB.book_ISBN,
     TB.book_title
-from course C,
+FROM course C,
     text_book TB,
     book_adoption BA
-where C.course_id = BA.course_id
-    and BA.book_ISBN = TB.book_ISBN
-    and C.course_id in (
-        select course_id
-        from book_adoption BA1
-        group by course_id
-        having count(*) >= 2
+WHERE C.course_id = BA.course_id
+    AND BA.book_ISBN = TB.book_ISBN
+    AND C.course_id in (
+        SELECT course_id
+        FROM book_adoption BA1
+        GROUP BY course_id
+        HAVING COUNT(*) >= 2
     )
-order by book_title;
+ORDER BY book_title;
 -- 
 -- 
 -- 3.	List any department that has all its adopted books published by a specific publisher.
 -- 
 -- Change "Oxford" to any publisher value
-select C.dept
-from course C,
+SELECT C.dept
+FROM course C,
     book_adoption BA,
     text_book TB
-where TB.publisher = "Oxford"
-    and C.course_id = BA.course_id
-    and TB.book_ISBN = BA.book_ISBN
-group by C.dept
-having count(distinct TB.book_ISBN) = (
-        select count(*)
-        from book_adoption B1,
+WHERE TB.publisher = "Oxford"
+    AND C.course_id = BA.course_id
+    AND TB.book_ISBN = BA.book_ISBN
+GROUP BY C.dept
+HAVING COUNT(distinct TB.book_ISBN) = (
+        SELECT count(*)
+        FROM book_adoption B1,
             course C1
-        where B1.course_id = C1.course_id
-            and dept = C.dept
+        WHERE B1.course_id = C1.course_id
+            AND dept = C.dept
     );
 -- 
 -- 
 -- 4.	List the students who have scored maximum marks in ‘DBMS’ course.
 -- 
-select name
-from student S,
+SELECT NAME
+FROM student S,
     enroll E,
     course C
-where E.regno = s.regno
-    and C.course_id = E.course_id
-    and C.cname = "DBMS"
-    and E.marks = (
+WHERE E.regno = s.regno
+    AND C.course_id = E.course_id
+    AND C.cname = "DBMS"
+    AND E.marks = (
         select max(marks)
         from enroll
-        where course_id = C.course_id
+        WHERE course_id = C.course_id
     );
 -- 
 -- 
@@ -105,7 +105,7 @@ FROM student S,
     course C,
     enroll E
 WHERE S.regno = E.regno
-    and C.course_id = E.course_id;
+    AND C.course_id = E.course_id;
 -- 
 -- 
 -- 6. Create a view to show the enrolled details of a student.
@@ -125,7 +125,7 @@ FROM text_book TB,
     course C,
     book_adoption BA
 WHERE BA.book_ISBN = TB.book_ISBN
-    and C.course_id = BA.course_id;
+    AND C.course_id = BA.course_id;
 -- 
 -- 
 -- 8. Create a trigger such that it Deletes all records from enroll table when course is deleted . 
