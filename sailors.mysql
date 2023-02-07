@@ -99,11 +99,20 @@ WHERE NOT EXISTS (
         FROM boat
         WHERE bid NOT IN (
                 SELECT bid
-                FROM rservers
+                FROM rservers1
                 WHERE sid = sailors.sid
             )
     );
--- 
+-- or
+SELECT sname
+FROM sailors S,
+    rservers1 R
+WHERE S.sid = R.sid
+GROUP BY sname
+having count(*) = (
+        select count(*)
+        from boat
+    );
 -- 
 --  5 Find the name and age of the oldest sailor.
 SELECT sname,
