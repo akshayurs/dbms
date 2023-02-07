@@ -1,0 +1,161 @@
+USE insurance;
+CREATE TABLE person (
+    driver_id VARCHAR(25) NOT NULL,
+    name VARCHAR(25) NOT NULL,
+    address VARCHAR(25) NOT NULL,
+    PRIMARY KEY (driver_id)
+);
+CREATE TABLE car (
+    regno VARCHAR(25) NOT NULL,
+    model VARCHAR(25) NOT NULL,
+    year INTEGER,
+    PRIMARY KEY (regno)
+);
+CREATE TABLE accident (
+    report_number INTEGER NOT NULL,
+    acc_date DATE,
+    location VARCHAR(25),
+    PRIMARY KEY (report_number)
+);
+CREATE TABLE owns (
+    driver_id VARCHAR(25) NOT NULL,
+    regno VARCHAR(25) NOT NULL,
+    FOREIGN KEY (driver_id) REFERENCES person(driver_id) ON DELETE CASCADE,
+    FOREIGN KEY (regno) REFERENCES car(regno) ON DELETE CASCADE
+);
+CREATE TABLE participated (
+    driver_id VARCHAR(25) NOT NULL,
+    regno VARCHAR(25) NOT NULL,
+    report_number INTEGER NOT NULL,
+    damage_amount FLOAT NOT NULL,
+    FOREIGN KEY (driver_id) REFERENCES person(driver_id) ON DELETE CASCADE,
+    FOREIGN KEY (regno) REFERENCES car(regno) ON DELETE CASCADE,
+    FOREIGN KEY (report_number) REFERENCES accident(report_number)
+);
+INSERT INTO person
+VALUES ("D111", "Driver_1", "Kuvempunagar, Mysuru"),
+    ("D222", "Smith", "JP Nagar, Mysuru"),
+    ("D333", "Driver_3", "Udaygiri, Mysuru"),
+    ("D444", "Driver_4", "Rajivnagar, Mysuru");
+INSERT INTO car
+VALUES ("KA-20-AB-4223", "Swift", 2020),
+    ("KA-20-BC-5674", "Mazda", 2017),
+    ("KA-21-AC-5473", "Alto", 2015),
+    ("KA-21-BD-4728", "Triber", 2019),
+    ("KA-09-MA-1234", "Tiago", 2018);
+INSERT INTO accident
+VALUES (43627, "2020-04-05", "Nazarbad, Mysuru"),
+    (56345, "2019-12-16", "Gokulam, Mysuru"),
+    (
+        63744,
+        "2020-05-14",
+        "Vijaynagar, Mysuru"
+    ),
+    (54634, "2019-08-30", "Kuvempunagar, Mysuru"),
+    (65738, "2021-01-21", "JSS Layout, Mysuru");
+INSERT INTO owns
+VALUES ("D111", "KA-20-AB-4223"),
+    ("D222", "KA-20-BC-5674"),
+    ("D333", "KA-21-AC-5473"),
+    ("D444", "KA-21-BD-4728"),
+    ("D222", "KA-09-MA-1234");
+INSERT INTO participated
+VALUES ("D111", "KA-20-AB-4223", 43627, 20000),
+    ("D222", "KA-20-BC-5674", 56345, 49500),
+    ("D333", "KA-21-AC-5473", 63744, 15000),
+    ("D444", "KA-21-BD-4728", 54634, 5000),
+    ("D222", "KA-09-MA-1234", 65738, 25000);
+-- 
+-- 1.	Find the total number of people who owned cars that were involved in accidents in 2021. 
+SELECT count(DISTINCT P.driver_id)
+FROM accident A,
+    participated P
+WHERE P.report_number = A.report_number
+    AND YEAR(A.acc_date) = 2021;
+-- 
+-- 2.	Find the number of accidents in which the cars belonging to “Smith” were involved.  
+SELECT count(*)
+FROM participated p
+WHERE driver_id =(
+        SELECT driver_id
+        FROM person
+        WHERE name = "Smith"
+    );
+-- 
+-- 3.	Add a new accident to the database; assume any values for required attributes. 
+INSERT into accident
+values (45562, "2024-04-05", "Mandya");
+INSERT into participated
+values ("D222", "KA-21-BD-4728", 45562, 50000);
+-- 
+-- 4.	DELETE the Mazda belonging to “Smith”.  
+DELETE FROM car
+WHERE model = "Mazda"
+    AND regno in (
+        SELECT regno
+        FROM owns
+        WHERE driver_id = (
+                SELECT driver_id
+                FROM person
+                WHERE name = "Smith"
+            )
+    );
+-- 
+-- 5.	Update the damage amount for the car with license number “KA09MA1234” in the accident with report. 
+update participated
+set damage_amount = 9999
+WHERE report_number = 65738
+    AND regno = "KA-09-MA-1234";
+-- 
+-- 6.	A view that shows models and year of cars that are involved in accident. 
+CREATE view car_accident AS
+SELECT distinct C.model,
+    C.year
+FROM car C,
+    participated P
+WHERE C.regno = P.regno;
+-- 7.	CREATE a view that shows name and address of drivers who own a car.
+CREATE view name_address AS
+SELECT name,
+    address
+FROM person P
+WHERE exists (
+        SELECT *
+        FROM owns O
+        WHERE O.driver_id = P.driver_id
+    );
+-- 
+-- 8.	CREATE a view that shows the names of the drivers who a participated in a accident in a specific place.
+CREATE view name_location AS
+SELECT name
+FROM person PE,
+    accident AC,
+    participated PA
+WHERE PE.driver_id = PA.driver_id
+    AND AC.report_number = PA.report_number
+    AND AC.location LIKE "%Mysuru%";
+-- 
+-- 9.	A trigger that prevents driver with total damage amount >rs.50,000 FROM owning a car. 
+-- 
+-- Change delimiter to use
+CREATE trigger prevent_own BEFORE
+INSERT ON owns FOR EACH ROW IF (
+        SELECT sum(damage_amount)
+        FROM participated
+        WHERE driver_id = new.driver_id
+    ) >= 50000 THEN signal sqlstate '45000'
+SET MESSAGE_TEXT = 'Damage Greater than Rs 50000';
+END IF;
+-- 
+-- 10.	A trigger that prevents a driver FROM participating in more than 3 accidents in a given year.
+-- 
+-- Change delimiter to use
+CREATE trigger prevent_participate BEFORE
+INSERT ON participated FOR EACH ROW IF (
+        SELECT count(*)
+        FROM participated
+        WHERE driver_id = new.driver_id
+    ) >= 3 THEN signal sqlstate '45000'
+SET MESSAGE_TEXT = 'More than 3 accident';
+END IF;
+- -
