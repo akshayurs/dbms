@@ -4,7 +4,7 @@ CREATE TABLE customer (
 	cname VARCHAR(25) NOT NULL,
 	city VARCHAR(25) not null
 );
-CREATE TABLE order(
+CREATE TABLE orders(
 	order_id INTEGER PRIMARY KEY,
 	odate DATE NOT NULL,
 	cust_id INTEGER,
@@ -19,7 +19,7 @@ CREATE TABLE orderitem (
 	order_id INTEGER NOT NULL,
 	item_id INTEGER NOT NULL,
 	qty INTEGER NOT NULL,
-	FOREIGN KEY (order_id) REFERENCES order(order_id) ON DELETE CASCADE,
+	FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
 	FOREIGN KEY (item_id) REFERENCES item(item_id) ON DELETE CASCADE
 );
 CREATE TABLE warehouse (
@@ -30,7 +30,7 @@ CREATE TABLE shipment (
 	order_id INTEGER NOT NULL,
 	warehouse_id INTEGER NOT NULL,
 	ship_date date NOT NULL,
-	FOREIGN KEY (order_id) REFERENCES order(order_id) ON DELETE CASCADE,
+	FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
 	FOREIGN KEY (warehouse_id) REFERENCES warehouse(warehouse_id) ON DELETE CASCADE
 );
 INSERT INTO customer
@@ -83,20 +83,20 @@ SELECT O.order_id,
 	W.warehouse_id
 FROM warehouse W,
 	shipment S,
-	order O,
+	orders O,
 	customer C
 WHERE W.warehouse_id = S.warehouse_id
 	AND C.cust_id = O.cust_id
 	AND O.order_id = S.order_id
 	AND C.cname = "Kumar";
 -- 
--- 3.	Produce a listing: Cname, #ofOrders, Avg_Order_Amt, where the middle column is the total number of orders by the customer and the last column is the average order amount for that customer. (Use aggregate functions) 
+-- 3.	Produce a listing: Cname, #ofOrders, Avg_Order_Amt, where the middle column is the total number of orders by the customer and the last column is the average orders amount for that customer. (Use aggregate functions) 
 -- 
 SELECT cname,
 	COUNT(*),
 	AVG(order_amt)
 FROM customer C,
-	order O
+	orders O
 WHERE C.cust_id = O.cust_id
 GROUP BY C.cname;
 -- 
@@ -116,7 +116,7 @@ FROM item;
 --
 -- >> create view Produce a listing: Cname, #ofOrders, Avg_Order_Amt, 
 -- where the middle column is the total number of orders by the customer 
--- and the last column is the average order amount for that customer
+-- and the last column is the average orders amount for that customer
 CREATE VIEW list_orders as
 SELECT c.cname,
 	COUNT(*),
@@ -134,13 +134,13 @@ SELECT order_id,
 FROM shipment S
 WHERE warehouse_id = 2;
 -- 
--- 8. A view that shows the warehouse name from where the kumar’s order is been shipped.
+-- 8. A view that shows the warehouse name from where the kumar’s orders is been shipped.
 -- 
 CREATE VIEW warehouse_kumar AS
 SELECT S.order_id,
 	S.warehouse_id
 FROM shipment S,
-	order O,
+	orders O,
 	customer C
 WHERE S.order_id = O.order_id
 	AND C.cust_id = O.cust_id
@@ -151,7 +151,7 @@ WHERE S.order_id = O.order_id
 CREATE TRIGGER update_amt
 AFTER
 UPDATE ON orderitem FOR EACH ROW
-UPDATE order O
+UPDATE orders O
 SET O.order_amt = (
 		SELECT sum(OI.qty * I.unitprice)
 		FROM orderitem OI,
