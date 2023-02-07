@@ -1,0 +1,174 @@
+use orders;
+CREATE TABLE customer (
+	cust_id INTEGER PRIMARY KEY,
+	cname VARCHAR(25) NOT NULL,
+	city VARCHAR(25) not null
+);
+CREATE TABLE order(
+	order_id INTEGER PRIMARY KEY,
+	odate DATE NOT NULL,
+	cust_id INTEGER,
+	order_amt INTEGER NOT NULL,
+	FOREIGN KEY (cust_id) REFERENCES customer(cust_id) ON DELETE CASCADE
+);
+CREATE TABLE item (
+	item_id INTEGER PRIMARY KEY,
+	unitprice INTEGER NOT NULL
+);
+CREATE TABLE orderitem (
+	order_id INTEGER NOT NULL,
+	item_id INTEGER NOT NULL,
+	qty INTEGER NOT NULL,
+	FOREIGN KEY (order_id) REFERENCES order(order_id) ON DELETE CASCADE,
+	FOREIGN KEY (item_id) REFERENCES item(item_id) ON DELETE CASCADE
+);
+CREATE TABLE warehouse (
+	warehouse_id INTEGER PRIMARY KEY,
+	city VARCHAR(25) NOT NULL
+);
+CREATE TABLE shipment (
+	order_id INTEGER NOT NULL,
+	warehouse_id INTEGER NOT NULL,
+	ship_date date NOT NULL,
+	FOREIGN KEY (order_id) REFERENCES order(order_id) ON DELETE CASCADE,
+	FOREIGN KEY (warehouse_id) REFERENCES warehouse(warehouse_id) ON DELETE CASCADE
+);
+INSERT INTO customer
+VALUES (0001, "Customer_1", "Mysuru"),
+	(0002, "Customer_2", "Bengaluru"),
+	(0003, "Kumar", "Mumbai"),
+	(0004, "Customer_4", "Dehli"),
+	(0005, "Customer_5", "Bengaluru");
+INSERT INTO order
+VALUES (001, "2020-01-14", 0001, 2000),
+	(002, "2021-04-13", 0002, 500),
+	(003, "2019-10-02", 0005, 2500),
+	(004, "2019-05-12", 0003, 1000),
+	(005, "2020-12-23", 0004, 1200);
+INSERT INTO item
+VALUES (0001, 400),
+	(0002, 200),
+	(0003, 1000),
+	(0004, 100),
+	(0005, 500);
+INSERT INTO warehouse
+VALUES (0001, "Mysuru"),
+	(0002, "Bengaluru"),
+	(0003, "Mumbai"),
+	(0004, "Dehli"),
+	(0005, "Chennai");
+INSERT INTO orderitem
+VALUES (001, 0001, 5),
+	(002, 0005, 1),
+	(003, 0005, 5),
+	(004, 0003, 1),
+	(005, 0004, 12);
+INSERT INTO shipment
+VALUES (001, 0002, "2020-01-16"),
+	(002, 0001, "2021-04-14"),
+	(003, 0004, "2019-10-07"),
+	(004, 0003, "2019-05-16"),
+	(005, 0005, "2020-12-23");
+-- 
+-- 1.	List the Order# and Ship_date for all orders shipped from Warehouse# "W2". 
+-- 
+SELECT order_id,
+	ship_date
+FROM shipment
+WHERE warehouse_id = 2;
+-- 
+-- 2.	List the Warehouse information from which the Customer named "Kumar" was supplied his orders. Produce a listing of Order#, Warehouse#. 
+-- 
+SELECT O.order_id,
+	W.warehouse_id
+FROM warehouse W,
+	shipment S,
+	order O,
+	customer C
+WHERE W.warehouse_id = S.warehouse_id
+	AND C.cust_id = O.cust_id
+	AND O.order_id = S.order_id
+	AND C.cname = "Kumar";
+-- 
+-- 3.	Produce a listing: Cname, #ofOrders, Avg_Order_Amt, where the middle column is the total number of orders by the customer and the last column is the average order amount for that customer. (Use aggregate functions) 
+-- 
+SELECT cname,
+	COUNT(*),
+	AVG(order_amt)
+FROM customer C,
+	order O
+WHERE C.cust_id = O.cust_id
+GROUP BY C.cname;
+-- 
+-- 4.	Delete all orders for customer named "Kumar". 
+-- 
+delete FROM order
+WHERE cust_id = (
+		SELECT cust_id
+		FROM customer
+		WHERE cname = "Kumar"
+	);
+-- 
+-- 5. Find the item with the maximum unit price. 
+-- 
+SELECT MAX(unitprice)
+FROM item;
+--
+-- >> create view Produce a listing: Cname, #ofOrders, Avg_Order_Amt, 
+-- where the middle column is the total number of orders by the customer 
+-- and the last column is the average order amount for that customer
+CREATE VIEW list_orders as
+SELECT c.cname,
+	COUNT(*),
+	AVG(oamt)
+FROM customer c,
+	orders o
+WHERE c.cid = o.cid
+GROUP BY c.cname;
+-- 
+-- 7. create a view to display orderID and shipment date of all orders shipped from a warehouse 2. 
+--
+CREATE VIEW order_date_w2 AS
+SELECT order_id,
+	Ship_date
+FROM shipment S
+WHERE warehouse_id = 2;
+-- 
+-- 8. A view that shows the warehouse name from where the kumar’s order is been shipped.
+-- 
+CREATE VIEW warehouse_kumar AS
+SELECT S.order_id,
+	S.warehouse_id
+FROM shipment S,
+	order O,
+	customer C
+WHERE S.order_id = O.order_id
+	AND C.cust_id = O.cust_id
+	AND C.cname = 'Kumar';
+-- 
+-- 9.	A tigger that updates order_amount based on quantity and unit price of order_item .
+-- 
+CREATE TRIGGER update_amt
+AFTER
+UPDATE ON orderitem FOR EACH ROW
+UPDATE order O
+SET O.order_amt = (
+		SELECT sum(OI.qty * I.unitprice)
+		FROM orderitem OI,
+			item I
+		WHERE OI.item_id = I.item_id
+			AND OI.order_id = NEW.order_id
+	)
+WHERE O.order_id = NEW.order_id;
+-- 
+-- 	>> Trigger that prevents warehouse details from being deleted if any item has to be shipped from that warehouse
+-- 
+-- change delimiter to use
+CREATE TRIGGER prevent_warehouse_delete BEFORE DELETE ON warehouse FOR EACH ROW IF OLD.warehouse_id IN (
+	SELECT W.warehouse_id
+	FROM shipment S,
+		warehouse W
+	WHERE S.warehouse_id = W.warehouse_id
+) THEN SIGNAL SQLSTATE '45000'
+SET MESSAGE_TEXT = 'Cant delete warehouse, Item has to be shipped';
+END IF;
