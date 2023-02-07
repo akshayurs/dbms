@@ -1,0 +1,149 @@
+USE company;
+CREATE TABLE department (
+    dno INTEGER NOT NULL,
+    dname VARCHAR(50) NOT NULL,
+    mgrssn VARCHAR(25) NOT NULL,
+    mgrstartdate DATE NOT NULL,
+    PRIMARY KEY(dno)
+);
+CREATE TABLE employee (
+    ssn VARCHAR(20) NOT NULL,
+    ename VARCHAR(50) NOT NULL,
+    addrees TEXT NOT NULL,
+    sex VARCHAR(10) NOT NULL,
+    salary INTEGER NOT NULL,
+    superssn VARCHAR(30) NOT NULL,
+    dno INTEGER NOT NULL,
+    PRIMARY KEY(ssn),
+    FOREIGN KEY(dno) REFERENCES department(dno) ON DELETE CASCADE
+);
+CREATE TABLE dlocation (
+    dno INTEGER NOT NULL,
+    dloc TEXT,
+    FOREIGN KEY(dno) REFERENCES department(dno) ON DELETE CASCADE
+);
+CREATE TABLE project (
+    pno INTEGER NOT NULL,
+    pname VARCHAR(50),
+    ploc TEXT NOT NULL,
+    dno INTEGER NOT NULL,
+    PRIMARY KEY(pno)
+);
+CREATE TABLE works_on (
+    ssn VARCHAR(25) NOT NULL,
+    pno INTEGER,
+    hour INTEGER NOT NULL,
+    FOREIGN KEY(pno) REFERENCES project(pno) ON DELETE CASCADE
+);
+-- 
+--
+-- 1.	Make a list of all project numbers for projects that involve an employee whose last name is ‘Scott’, either as a worker or as a manager of the department that controls the project.
+SELECT p.pno
+FROM works_on w,
+    employee e,
+    project p
+WHERE e.ssn = w.ssn
+    AND p.pno = w.pno
+    AND e.ename LIKE "%Scott"
+UNION
+SELECT pno
+FROM project
+WHERE dno IN(
+        SELECT D.dno
+        FROM department D,
+            employee E
+        WHERE D.mgrssn = E.ssn
+            AND E.ename like "%Scott"
+    );
+-- 
+--
+-- 2. Show the resulting salaries if every employee working on the ‘IoT’ project is given a 10 percent raise. 
+SELECT e.ssn,
+    salary,
+    salary * 1.1 as new_salary
+FROM employee e,
+    project p,
+    works_on w
+WHERE e.ssn = w.ssn
+    AND p.pno = w.pno
+    AND p.pname = 'IoT';
+-- 
+--
+-- 3. Find the sum of the salaries of all employees of the ‘Accounts’ department, as well as the maximum salary, the minimum salary, AND the average salary in this department 
+SELECT SUM(salary),
+    MAX(salary),
+    MIN(salary),
+    AVG(salary)
+FROM employee e,
+    department d
+WHERE e.dno = d.dno
+    AND d.dname = "Accounts";
+-- 
+--
+-- 4. Retrieve the name of each employee who works on all the projects controlled by department number 1 (use NOT EXISTS operator).
+SELECT ename
+FROM employee e
+WHERE NOT EXISTS (
+        SELECT *
+        FROM project
+        WHERE dno = 1
+            AND pno NOT IN(
+                SELECT pno
+                FROM works_on
+                WHERE ssn = e.ssn
+            )
+    );
+-- 
+--
+-- 5. For each department that has more than five employees, retrieve the department number AND the number of its employees who are making more than Rs. 6,00,000.
+SELECT dno,
+    count(*)
+FROM employee
+WHERE salary > 600000
+    AND dno in (
+        SELECT dno
+        FROM employee
+        group by dno
+        having count(*) >= 5
+    )
+group by dno;
+-- 
+--
+-- 6. CREATE a view that shows name, dept name AND location of all employees. 
+CREATE view emp_details as
+SELECT e.ename,
+    d.dname,
+    dl.dloc
+FROM employee e,
+    department d,
+    dlocation dl
+WHERE d.dno = e.dno
+    AND d.dno = dl.dno;
+-- 
+--
+-- 7. Create a view that shows project name, location AND dept.
+CREATE view project_info as
+SELECT pname,
+    ploc,
+    dno
+FROM project;
+-- 
+--
+-- 8. A TRIGGER that automatically updates manager’s start date when he is assigned . 
+CREATE TRIGGER manager_update BEFORE
+UPDATE ON department FOR EACH ROW
+set new.mgrstartdate = current_date;
+-- 
+--
+-- 9. Create a TRIGGER that prevents a project FROM being deleted if it is currently being worked by any employee.
+-- 
+-- change delimiter to use
+CREATE TRIGGER prevent_delete BEFORE DELETE on project FOR EACH ROW if(
+    (
+        SELECT count(*)
+        FROM works_on
+        WHERE pno = old.pno
+    ) > 0
+) THEN SIGNAL SQLSTATE '45000'
+set MESSAGE_TEXT = "Cant delete project";
+end if;
