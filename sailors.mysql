@@ -99,14 +99,14 @@ WHERE NOT EXISTS (
         FROM boat
         WHERE bid NOT IN (
                 SELECT bid
-                FROM rservers1
+                FROM rservers
                 WHERE sid = sailors.sid
             )
     );
 -- or
 SELECT sname
 FROM sailors S,
-    rservers1 R
+    rservers R
 WHERE S.sid = R.sid
 GROUP BY sname
 having count(*) = (
