@@ -1,0 +1,153 @@
+USE enrollment;
+CREATE TABLE student (
+    regno VARCHAR(25) NOT NULL,
+    name VARCHAR(25) NOT NULL,
+    major VARCHAR(25) NOT NULL,
+    bdate DATE,
+    PRIMARY KEY(regno)
+);
+CREATE TABLE course (
+    course_id INTEGER NOT NULL PRIMARY KEY,
+    cname VARCHAR(25) NOT NULL,
+    dept VARCHAR(25) NOT NULL
+);
+CREATE TABLE enroll (
+    regno VARCHAR(25),
+    course_id INTEGER NOT NULL,
+    sem INTEGER,
+    marks INTEGER,
+    FOREIGN KEY(regno) REFERENCES student(regno) ON DELETE CASCADE
+);
+CREATE TABLE text_book (
+    book_ISBN INTEGER NOT NULL,
+    book_title VARCHAR(25),
+    publisher VARCHAR(25) NOT NULL,
+    author VARCHAR(25) NOT NULL,
+    PRIMARY KEY(book_ISBN)
+);
+CREATE TABLE book_adoption (
+    course_id INTEGER,
+    sem INTEGER,
+    book_ISBN INTEGER NOT NULL,
+    FOREIGN KEY(book_ISBN) REFERENCES text_book(book_ISBN) ON DELETE CASCADE
+);
+-- 
+-- 
+-- 1. Demonstrate how you add a new text book to the database and make this book be adopted by some department. 
+insert into text_book
+values(11, "Maths", "Publisher_1", "Author_1");
+insert into book_adoption
+values (5, 5, 11);
+-- 
+-- 
+-- 2. Produce a list of text books (include Course #, Book-ISBN, Book-title)
+-- in the alphabetical order for courses offered by the ‘CS’ department that use more than one books. 
+select C.course_id,
+    TB.book_ISBN,
+    TB.book_title
+from course C,
+    text_book TB,
+    book_adoption BA
+where C.course_id = BA.course_id
+    and BA.book_ISBN = TB.book_ISBN
+    and C.course_id in (
+        select course_id
+        from book_adoption BA1
+        group by course_id
+        having count(*) >= 2
+    )
+order by book_title;
+-- 
+-- 
+-- 3.	List any department that has all its adopted books published by a specific publisher.
+-- 
+-- Change "Oxford" to any publisher value
+select C.dept
+from course C,
+    book_adoption BA,
+    text_book TB
+where TB.publisher = "Oxford"
+    and C.course_id = BA.course_id
+    and TB.book_ISBN = BA.book_ISBN
+group by C.dept
+having count(distinct TB.book_ISBN) = (
+        select count(*)
+        from book_adoption B1,
+            course C1
+        where B1.course_id = C1.course_id
+            and dept = C.dept
+    );
+-- 
+-- 
+-- 4.	List the students who have scored maximum marks in ‘DBMS’ course.
+-- 
+select name
+from student S,
+    enroll E,
+    course C
+where E.regno = s.regno
+    and C.course_id = E.course_id
+    and C.cname = "DBMS"
+    and E.marks = (
+        select max(marks)
+        from enroll
+        where course_id = C.course_id
+    );
+-- 
+-- 
+-- 5. Create a view to display all the courses opted by a student along with marks obtained.
+-- 
+CREATE VIEW student_marks AS
+SELECT S.name,
+    C.cname,
+    E.marks
+FROM student S,
+    course C,
+    enroll E
+WHERE S.regno = E.regno
+    and C.course_id = E.course_id;
+-- 
+-- 
+-- 6. Create a view to show the enrolled details of a student.
+-- 
+-- use any join, select required attributes
+CREATE VIEW student_enroll AS
+SELECT *
+from student
+    natural join enroll;
+-- 7. Create a view to display course related books from course_adoption and text book table using book_ISBN. 
+CREATE VIEW course_books AS
+SELECT C.course_id,
+    C.cname,
+    TB.book_ISBN,
+    TB.book_title
+FROM text_book TB,
+    course C,
+    book_adoption BA
+WHERE BA.book_ISBN = TB.book_ISBN
+    and C.course_id = BA.course_id;
+-- 
+-- 
+-- 8. Create a trigger such that it Deletes all records from enroll table when course is deleted . 
+-- 
+CREATE TRIGGER delete_enrollment
+AFTER DELETE ON course FOR EACH ROW
+DELETE FROM enroll
+WHERE course_id = old.course_id;
+-- 
+-- 9. Create a trigger that prevents a student from enrolling in a course if the marks pre_requisit is less than the given threshold . 
+-- 
+-- change delimiter to use
+-- assuming course_id = 1 is the prereqcourse and 50 is the minimum marks 
+CREATE TRIGGER prevent_enroll BEFORE
+INSERT ON ENROLL FOR EACH ROW IF (
+        new.course_id <> 1
+        AND new.regno NOT IN (
+            select regno
+            from enroll
+            where course_id = 1
+                and marks >= 50
+        )
+    ) THEN SIGNAL SQLSTATE '45000'
+SET MESSAGE_TEXT = 'Can`t enroll, Marks less than pre_requisit marks';
+END IF;
