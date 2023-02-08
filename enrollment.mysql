@@ -36,7 +36,7 @@ CREATE TABLE book_adoption (
 -- 1. Demonstrate how you add a new text book to the database and make this book be adopted by some department. 
 INSERT INTO text_book
 VALUES(11, "Maths", "Publisher_1", "Author_1");
-insert INTO book_adoption
+INSERT INTO book_adoption
 VALUES (5, 5, 11);
 -- 
 -- 
@@ -50,6 +50,7 @@ FROM course C,
     book_adoption BA
 WHERE C.course_id = BA.course_id
     AND BA.book_ISBN = TB.book_ISBN
+    AND C.dept = "CS"
     AND C.course_id in (
         SELECT course_id
         FROM book_adoption BA1
@@ -115,6 +116,7 @@ CREATE VIEW student_enroll AS
 SELECT *
 from student
     natural join enroll;
+-- 
 -- 7. Create a view to display course related books from course_adoption and text book table using book_ISBN. 
 CREATE VIEW course_books AS
 SELECT C.course_id,
